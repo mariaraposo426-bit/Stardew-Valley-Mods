@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using StardewValley;
 using StardewValley.Objects;
@@ -12,12 +12,8 @@ using System.Xml.Serialization;
 
 namespace CustomFurniture
 {
-#if ANDROID
-    public class CustomFurniture : Furniture, ISaveElement
-#else
     [XmlType("Mods_platonymous_CustomFurniture")]
-    public class CustomFurniture : Furniture, ISittable
-#endif
+    public class CustomFurniture : Furniture
     {
         internal Texture2D texture;
         internal Texture2D textureOverlay;
@@ -68,19 +64,20 @@ namespace CustomFurniture
             frame = 0;
             skipFrame = 60 / data.fps;
             counter = 0;
-            tileLocation.Value = tile;
+            TileLocation = tile;
 
-            CustomFurnitureMod.helper.Reflection.GetField<string>(this, "_description").SetValue(data.description);
-            CustomFurnitureMod.helper.Reflection.GetField<int>(this, "_placementRestriction").SetValue(2);
+            // SDV 1.6: description is now a public property
+            description = data.description;
+            
+            // SDV 1.6: placementRestriction is now a public property
+            placementRestriction = Furniture.PLACEMENT_RESTRICTION_INDOORS;
 
-            parentSheetIndex.Set(data.index);
+            ItemId = data.index.ToString();
             setTexture();
-            name = data.name;
+            Name = data.name;
+            DisplayName = data.name;
+            
             List<string> decorTypes = new List<string>();
-           /* decorTypes.Add("chair");
-            decorTypes.Add("bench");
-            decorTypes.Add("couch");
-            decorTypes.Add("armchair");*/
             decorTypes.Add("dresser");
             decorTypes.Add("bookcase");
             decorTypes.Add("other");
@@ -89,7 +86,6 @@ namespace CustomFurniture
             if (this.Name.Contains("Stool") || data.type == "stool")
                 isStool = true;
 
-            //furniture_type.Value = data.type.Contains("table") ? 11 : decorTypes.Contains(data.type) ? 8 : CustomFurnitureMod.helper.Reflection.GetMethod(new Furniture(), "getTypeNumberFromName").Invoke<int>(data.type);
             furniture_type.Value = getTypeFromName(typename);
             defaultSourceRect.Value = new Rectangle(data.index * 16 % texture.Width, data.index * 16 / texture.Width * 16, 1, 1);
             drawHeldObjectLow.Value = false;
@@ -100,14 +96,14 @@ namespace CustomFurniture
             animatedSourceRect = sourceRect;
             defaultSourceRect.Value = sourceRect;
 
-            defaultBoundingBox.Value = new Rectangle((int)tileLocation.X, (int)tileLocation.Y, data.boxWidth * Game1.tileSize, data.boxHeight * Game1.tileSize);
+            defaultBoundingBox.Value = new Rectangle((int)TileLocation.X, (int)TileLocation.Y, data.boxWidth * Game1.tileSize, data.boxHeight * Game1.tileSize);
 
-            boundingBox.Value = new Rectangle((int)tileLocation.X * Game1.tileSize, (int)tileLocation.Y * Game1.tileSize, defaultBoundingBox.Width, defaultBoundingBox.Height);
+            boundingBox.Value = new Rectangle((int)TileLocation.X * Game1.tileSize, (int)TileLocation.Y * Game1.tileSize, defaultBoundingBox.Width, defaultBoundingBox.Height);
             defaultBoundingBox.Value = boundingBox;
 
             updateDrawPosition();
             rotations.Value = data.rotations;
-            price.Value = data.price;
+            Price = data.price;
 
             fRotation = FurnitureRotation.horizontal;
             texture = null;
@@ -115,7 +111,7 @@ namespace CustomFurniture
             textureUnderlay = null;
         }
 
-        public override void DayUpdate(GameLocation location)
+        public override void DayUpdate()
         {
             if (data.fromContent)
             {
@@ -126,7 +122,7 @@ namespace CustomFurniture
                     textureUnderlay = CustomFurnitureMod.helper.GameContent.Load<Texture2D>(data.textureUnderlay);
             }
 
-            base.DayUpdate(location);
+            base.DayUpdate();
         }
 
         public void setTexture()
@@ -142,13 +138,11 @@ namespace CustomFurniture
                 textureOverlay = CustomFurnitureMod.helper.GameContent.Load<Texture2D>(Textures[tkey2]);
             if (data.textureUnderlay is string underlay && $"{folder}/{underlay}" is string tkey3 && Textures.ContainsKey(tkey3))
                 textureUnderlay = CustomFurnitureMod.helper.GameContent.Load<Texture2D>(Textures[tkey3]);
-
-
         }
 
-        protected override string loadDisplayName()
+        public override string displayName
         {
-            return name;
+            get { return Name; }
         }
 
         public override string getDescription()
@@ -241,7 +235,7 @@ namespace CustomFurniture
         public Rectangle getCurrentBoundingBox()
         {
             if (fRotation == FurnitureRotation.vertical || fRotation == FurnitureRotation.flipped)
-                return new Rectangle((int)tileLocation.X * Game1.tileSize, ((int)tileLocation.Y) * Game1.tileSize, rotatedBoxWidth, rotatedBoxHeight);
+                return new Rectangle((int)TileLocation.X * Game1.tileSize, ((int)TileLocation.Y) * Game1.tileSize, rotatedBoxWidth, rotatedBoxHeight);
 
             return defaultBoundingBox;
         }
@@ -271,12 +265,9 @@ namespace CustomFurniture
             float over = (float)(base.boundingBox.Value.Bottom - 8) / 10000f;
             float position = 
                 furniture_type == 12 ? 0.0f :
-#if ANDROID     
-#else
-        HasSittingFarmers() &&  furniture_type > 3 ? over : 
-#endif
-                    isStool ? under : 
-                    currentRotation.Value == 2 ? over : under;
+                HasSittingFarmers() && furniture_type > 3 ? over : 
+                isStool ? under : 
+                currentRotation.Value == 2 ? over : under;
 
             if (x == -1)
             {
@@ -309,7 +300,7 @@ namespace CustomFurniture
             else
             {
                 spriteBatch.Draw(Game1.shadowTexture, Game1.GlobalToLocal(Game1.viewport, new Vector2((float)(boundingBox.Center.X - Game1.tileSize / 2), (float)(boundingBox.Center.Y - (drawHeldObjectLow ? Game1.tileSize / 2 : Game1.tileSize * 4 / 3)))) + new Vector2((float)(Game1.tileSize / 2), (float)(Game1.tileSize * 5 / 6)), new Rectangle?(Game1.shadowTexture.Bounds), Color.White * alpha, 0.0f, new Vector2((float)Game1.shadowTexture.Bounds.Center.X, (float)Game1.shadowTexture.Bounds.Center.Y), 4f, SpriteEffects.None, (float)boundingBox.Bottom / 10000f);
-                spriteBatch.Draw(Game1.objectSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2((float)(boundingBox.Center.X - Game1.tileSize / 2), (float)(boundingBox.Center.Y - (drawHeldObjectLow ? Game1.tileSize / 2 : Game1.tileSize * 4 / 3)))), new Rectangle?(GameLocation.getSourceRectForObject(ParentSheetIndex)), Color.White * alpha, 0.0f, Vector2.Zero, (float)Game1.pixelZoom, SpriteEffects.None, (float)(boundingBox.Bottom + 1) / 10000f);
+                spriteBatch.Draw(Game1.objectSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2((float)(boundingBox.Center.X - Game1.tileSize / 2), (float)(boundingBox.Center.Y - (drawHeldObjectLow ? Game1.tileSize / 2 : Game1.tileSize * 4 / 3)))), new Rectangle?(GameLocation.getSourceRectForObject(ItemId)), Color.White * alpha, 0.0f, Vector2.Zero, (float)Game1.pixelZoom, SpriteEffects.None, (float)(boundingBox.Bottom + 1) / 10000f);
             }
         }
 
@@ -320,12 +311,12 @@ namespace CustomFurniture
                 ho.setTexture();
 
             if(ho.texture != null)
-                spriteBatch.Draw(ho.texture, location, new Rectangle?(ho.sourceRect.Value), Color.White * alpha, 0.0f, Vector2.Zero, (float)Game1.pixelZoom, this.Flipped ? SpriteEffects.FlipHorizontally : SpriteEffects.None, layerDepth);
+                spriteBatch.Draw(ho.texture, location, new Rectangle?(ho.sourceRect.Value), Color.White * alpha, 0.0f, Vector2.Zero, (float)Game1.pixelZoom, this.flipped ? SpriteEffects.FlipHorizontally : SpriteEffects.None, layerDepth);
         }
 
         public object getReplacement()
         {
-            Furniture replacement = new Furniture(0, tileLocation, currentRotation);
+            Furniture replacement = new Furniture(ItemId, TileLocation, currentRotation);
             if (heldObject.Value != null)
                 replacement.heldObject.Value = heldObject;
 
@@ -338,7 +329,7 @@ namespace CustomFurniture
         public Dictionary<string, string> getAdditionalSaveData()
         {
             Dictionary<string, string> savedata = new Dictionary<string, string>();
-            savedata.Add("name", name);
+            savedata.Add("name", Name);
             savedata.Add("id", id);
             savedata.Add("rotation", ((int) fRotation).ToString());
             savedata.Add("rotations", rotations.ToString());
@@ -349,9 +340,9 @@ namespace CustomFurniture
         {
             if (this.data == null)
            foreach(var f in CustomFurnitureMod.furniturePile)
-                if (f.Value.data.name == name)
+                if (f.Value.data.name == Name)
                 {
-                    build(f.Value.data, f.Key, tileLocation);
+                    build(f.Value.data, f.Key, TileLocation);
                     break;
                 }
         }
@@ -373,7 +364,7 @@ namespace CustomFurniture
                 rotations.Value = additionalSaveData.ContainsKey("rotations") ? int.Parse(additionalSaveData["rotations"]) : (replacement as Furniture).rotations.Value;
                 currentRotation.Value = additionalSaveData.ContainsKey("rotation") ? int.Parse(additionalSaveData["rotation"]) : (replacement as Furniture).currentRotation.Value;
                 fRotation = (FurnitureRotation)currentRotation.Value;
-                tileLocation.Value = (replacement as Furniture).TileLocation;
+                TileLocation = (replacement as Furniture).TileLocation;
 
                 rotate();
                 rotate();
