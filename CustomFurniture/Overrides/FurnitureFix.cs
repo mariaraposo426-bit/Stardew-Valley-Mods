@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewValley;
@@ -13,19 +13,31 @@ namespace CustomFurniture.Overrides
     {
         internal static MethodInfo TargetMethod()
         {
-                return AccessTools.Method(typeof(Furniture), "drawAtNonTileSpot");
+            return AccessTools.Method(typeof(Furniture), "drawAtNonTileSpot");
         }
 
         internal static bool Prefix(Furniture __instance, SpriteBatch spriteBatch, Vector2 location, float layerDepth, float alpha = 1f)
         {
- 
             if (__instance is CustomFurniture ho)
             {
                 if (ho.texture == null)
                     ho.setTexture();
                 
-                if(ho.texture != null)
-                    CustomFurnitureMod.harmonyDraw(ho.texture, location, new Rectangle?(ho.sourceRect.Value), Color.White * alpha, 0.0f, Vector2.Zero, (float)Game1.pixelZoom, ho.Flipped ? SpriteEffects.FlipHorizontally : SpriteEffects.None, layerDepth);
+                if (ho.texture != null)
+                {
+                    // In SDV 1.6, use spriteBatch.Draw instead of a custom harmony draw method
+                    spriteBatch.Draw(
+                        ho.texture,
+                        location,
+                        ho.sourceRect.Value,
+                        Color.White * alpha,
+                        0f,
+                        Vector2.Zero,
+                        4f, // Game1.pixelZoom is typically 4
+                        ho.Flipped ? SpriteEffects.FlipHorizontally : SpriteEffects.None,
+                        layerDepth
+                    );
+                }
                 return false;
             }
 
@@ -38,20 +50,19 @@ namespace CustomFurniture.Overrides
     {
         internal static MethodInfo TargetMethod()
         {
-            if (Type.GetType("StardewValley.Objects.Furniture, Stardew Valley") != null)
-                return AccessTools.Method(Type.GetType("StardewValley.Objects.Furniture, Stardew Valley"), "rotate");
-            else
-                return AccessTools.Method(Type.GetType("StardewValley.Objects.Furniture, StardewValley"), "rotate");
+            // SDV 1.6 simplified assembly references
+            return AccessTools.Method(typeof(Furniture), "rotate");
         }
 
         internal static bool Prefix(Furniture __instance)
         {
             if (__instance is CustomFurniture cf)
+            {
                 cf.customRotate();
-            else
-                return true;
+                return false;
+            }
 
-            return false;
+            return true;
         }
     }
 
@@ -60,12 +71,11 @@ namespace CustomFurniture.Overrides
     {
         internal static MethodInfo TargetMethod()
         {
-                return AccessTools.PropertyGetter(typeof(Furniture), "placementRestriction");
+            return AccessTools.PropertyGetter(typeof(Furniture), "placementRestriction");
         }
 
         internal static bool Prefix(Furniture __instance, ref int __result)
         {
-
             if (__instance is CustomFurniture)
             {
                 __result = 0;
